@@ -1263,6 +1263,7 @@ async function sbGet(key){
 // 全データをSupabaseに保存（デバウンス500ms）
 function sbPush(){
   if(!sbEnabled) return;
+  _sbIgnoreUntil = Date.now() + 2000; // 自分の書き込み後2秒はRealtimeを無視
   clearTimeout(_sbSaveTimer);
   _setSyncStatus('syncing');
   _sbSaveTimer = setTimeout(async ()=>{
@@ -1296,7 +1297,7 @@ async function sbLoad(){
   }
 }
 
-// 起動時：Supabase疎通確認→ロード→レンダリング
+// 起動時：Supabase疎通確認→ロード→Realtime接続
 async function sbInit(){
   try{
     const res = await fetch(
@@ -1312,17 +1313,69 @@ async function sbInit(){
 
   if(sbEnabled){
     await sbLoad();
+    sbRealtimeConnect();
   }
   _setSyncStatus(sbEnabled ? 'ok' : 'err');
 }
 
-// リアルタイム同期（30秒ごとにポーリング）
+// ─── Supabase Realtime（WebSocket）────────────────────────
+let _sbWs = null;
+let _sbWsReconnectTimer = null;
+let _sbIgnoreUntil = 0;
+
+function sbRealtimeConnect(){
+  if(_sbWs && _sbWs.readyState <= 1) return; // 接続中or接続済みなら不要
+
+  const wsUrl = SB_URL.replace('https://','wss://') + '/realtime/v1/websocket?apikey=' + SB_KEY + '&vsn=1.0.0';
+  _sbWs = new WebSocket(wsUrl);
+
+  _sbWs.onopen = ()=>{
+    console.log('Supabase Realtime 接続');
+    // kenta_dataテーブルをサブスクライブ
+    _sbWs.send(JSON.stringify({
+      topic: 'realtime:public:kenta_data',
+      event: 'phx_join',
+      payload: {},
+      ref: '1'
+    }));
+  };
+
+  _sbWs.onmessage = async (e)=>{
+    try{
+      const msg = JSON.parse(e.data);
+      // INSERT/UPDATE イベントを検知
+      if(msg.event === 'postgres_changes' ||
+         (msg.payload && msg.payload.data && msg.payload.data.type === 'INSERT') ||
+         (msg.payload && msg.payload.data && msg.payload.data.type === 'UPDATE')){
+
+        // 自分の書き込み直後（2秒以内）は無視して無限ループを防ぐ
+        if(Date.now() < _sbIgnoreUntil) return;
+
+        await sbLoad();
+        renderAll(); renderToday(); renderProjList(); renderUpcoming();
+        if(currentView==='schedule') renderSchedule();
+        if(currentView==='cal') renderCal();
+      }
+    }catch(err){}
+  };
+
+  _sbWs.onerror = ()=> _setSyncStatus('err');
+
+  _sbWs.onclose = ()=>{
+    console.log('Supabase Realtime 切断 → 5秒後再接続');
+    clearTimeout(_sbWsReconnectTimer);
+    _sbWsReconnectTimer = setTimeout(sbRealtimeConnect, 5000);
+  };
+}
+
+// フォールバック：WebSocketが使えない環境用に5秒ポーリング
 setInterval(async ()=>{
   if(!sbEnabled || document.hidden) return;
+  if(_sbWs && _sbWs.readyState === WebSocket.OPEN) return; // WS接続中は不要
   await sbLoad();
   renderAll(); renderToday(); renderProjList(); renderUpcoming();
   if(currentView==='schedule') renderSchedule();
-}, 30000);
+}, 5000);
 
 function todayStr(){return new Date().toISOString().slice(0,10)}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
