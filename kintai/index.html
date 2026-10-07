@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="勤怠アラート">
+<meta name="theme-color" content="#080B10">
+<title>勤怠アラート</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<style>
+:root{
+  --bg:#080B10;--bg2:#0D1117;--bg3:#141922;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#E2E8F0;--muted:#64748B;
+  --accent:#3B82F6;--accent2:#06B6D4;--danger:#EF4444;--warn:#F59E0B;--ok:#10B981;
+  --mono:ui-monospace,'SF Mono','DM Mono',Menlo,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Noto Sans JP',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);overscroll-behavior-y:none}
+body{min-height:100vh;min-height:100dvh;padding:calc(env(safe-area-inset-top) + 14px) 16px calc(env(safe-area-inset-bottom) + 24px)}
+.wrap{max-width:460px;margin:0 auto}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.title{font-family:var(--mono);font-size:14px;font-weight:600}
+.sync{font-size:10px;color:var(--muted)}
+.sync.ok{color:var(--ok)}.sync.err{color:var(--warn)}
+.clock{font-family:var(--mono);font-size:44px;font-weight:600;text-align:center;letter-spacing:0.02em;margin-top:10px;line-height:1.1}
+.date{text-align:center;font-size:12px;color:var(--muted);margin:4px 0 16px}
+.card{background:var(--bg3);border:1px solid var(--border);border-radius:14px;padding:14px 16px;margin-bottom:12px}
+.status-row{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.dot.work{background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 1.4s ease-in-out infinite}
+.dot.done{background:var(--ok)}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.35)}}
+.times{font-family:var(--mono);font-size:12px;color:var(--muted);margin:6px 0 0 20px;min-height:16px}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.btn{padding:15px 0;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:transform .1s,opacity .15s}
+.btn:active{transform:scale(.97)}
+.btn.in{background:rgba(16,185,129,0.18);color:var(--ok)}
+.btn.out{background:rgba(239,68,68,0.15);color:var(--danger)}
+.btn:disabled{opacity:.3;cursor:default}
+.link{display:block;text-align:center;margin-top:12px;font-size:11px;color:var(--muted);text-decoration:none}
+.note{font-size:11px;color:var(--warn);margin-top:10px;line-height:1.6}
+.note a,.note button{color:var(--accent2);background:none;border:none;padding:0;font-size:11px;text-decoration:underline;cursor:pointer;font-family:var(--sans)}
+details summary{cursor:pointer;font-size:13px;color:#94A3B8;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:'▸ ';color:var(--muted)}
+details[open] summary::before{content:'▾ '}
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.edit-grid label{font-size:11px;color:var(--muted);display:block;margin-bottom:4px}
+.edit-grid input{width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:8px;padding:9px 10px;font-size:14px;color:var(--text);font-family:var(--mono);color-scheme:dark;outline:none}
+.save-btn{margin-top:12px;width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--sans)}
+.h{font-size:12px;color:var(--muted);margin-bottom:8px;font-weight:600;letter-spacing:.05em}
+.hist-row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)}
+.hist-row:last-child{border-bottom:none}
+.hist-row.off{color:var(--muted)}
+.rules{font-size:11px;color:var(--muted);line-height:1.7;padding:0 4px}
+.notif-btn{display:block;margin:10px auto 0;padding:8px 16px;border-radius:10px;border:1px solid var(--border2);background:transparent;color:#94A3B8;font-size:12px;cursor:pointer;font-family:var(--sans)}
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translateX(-50%);background:var(--bg3);border:1px solid var(--border2);border-radius:10px;padding:10px 16px;font-size:13px;z-index:3000;opacity:0;pointer-events:none;transition:opacity .2s;white-space:nowrap}
+#toast.show{opacity:1}
+
+/* 大画面アラート */
+.warn-overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);animation:fadeIn .3s ease;padding:16px}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}10%,30%,50%,70%,90%{transform:translateX(-8px)}20%,40%,60%,80%{transform:translateX(8px)}}
+@keyframes pulseRed{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 20px rgba(239,68,68,0)}}
+@keyframes pulseAmber{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.6)}50%{box-shadow:0 0 0 20px rgba(245,158,11,0)}}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.warn-box{position:relative;background:#1a0808;border:2px solid var(--danger);border-radius:20px;padding:36px 28px;text-align:center;max-width:420px;width:100%;animation:shake .6s ease .3s,pulseRed 2s ease 1s infinite}
+.warn-box.in{background:#1a1205;border-color:rgba(245,158,11,.6);animation:shake .6s ease .3s,pulseAmber 2s ease 1s infinite}
+.warn-box .x{position:absolute;top:12px;right:14px;background:rgba(255,255,255,.08);border:none;color:#94A3B8;font-size:18px;width:32px;height:32px;border-radius:8px;cursor:pointer}
+.warn-box .icon{font-size:60px;margin-bottom:12px;animation:bounce 1s ease infinite}
+.warn-box h2{font-size:21px;color:var(--danger);font-family:var(--mono);margin:0 0 8px}
+.warn-box.in h2,.warn-box.in .wtime{color:var(--warn)}
+.warn-box .wtime{font-family:var(--mono);font-size:34px;color:var(--danger);margin-bottom:14px}
+.warn-box p{font-size:14px;color:#94A3B8;margin:0 0 22px;line-height:1.6}
+.wbtn{width:100%;padding:15px;border-radius:12px;border:none;background:var(--danger);color:#fff;font-size:16px;font-weight:700;cursor:pointer;font-family:var(--sans);margin-bottom:10px}
+.warn-box.in .wbtn{background:var(--warn);color:#000}
+.snz{background:transparent;border:1px solid rgba(255,255,255,.15);color:var(--muted);font-size:13px;padding:10px 20px;border-radius:10px;cursor:pointer;font-family:var(--sans)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="title">⏰ 勤怠アラート</div>
+    <div id="sync" class="sync">…</div>
+  </header>
+
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="date" id="dateLabel"></div>
+
+  <div class="card">
+    <div class="status-row"><span class="dot" id="dot"></span><span id="statusText">読み込み中…</span></div>
+    <div class="times" id="times"></div>
+    <div class="btns">
+      <button class="btn in" id="btnIn" onclick="clockIn()">出勤打刻</button>
+      <button class="btn out" id="btnOut" onclick="clockOut()">退勤打刻</button>
+    </div>
+    <a class="link" href="https://tms.rakurakukintai.jp/app/home" target="_blank" rel="noopener">🔗 楽楽勤怠を開く</a>
+    <div class="note" id="dayNote" hidden></div>
+  </div>
+
+  <details class="card" id="editBox">
+    <summary>時刻を修正する（打刻し忘れた時など）</summary>
+    <div class="edit-grid">
+      <div><label>出勤</label><input type="time" id="editIn"></div>
+      <div><label>退勤</label><input type="time" id="editOut"></div>
+    </div>
+    <button class="save-btn" onclick="saveEdit()">この内容で保存</button>
+  </details>
+
+  <div class="card">
+    <div class="h">直近7日</div>
+    <div id="history"></div>
+  </div>
+
+  <div class="rules">
+    平日 9:30 までに出勤打刻がないと大画面アラート／19:00 以降に退勤打刻がないと大画面アラート。<br>
+    「10分後にまた通知」は全端末で共有され、どれか1台で打刻すれば他の端末のアラートも消えます。
+  </div>
+  <button class="notif-btn" id="btnNotif" hidden onclick="askNotif()">🔔 ブラウザ通知を許可する</button>
+</div>
+<div id="toast"></div>
+
+<script>
+// ─── 設定 ───────────────────────────────────────────────
+const SB_URL   = 'https://fnpnslrakobuuxnerjxe.supabase.co';
+const SB_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZucG5zbHJha29idXV4bmVyanhlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NDA3MDYsImV4cCI6MjA5MDUxNjcwNn0.3F4ZcOWf1PpMLbCi8ITl0Htx5h0wSYen-daum7cOsSA';
+const SB_TABLE = 'kenta_data';
+const SB_KEY_NAME = 'attend';                       // ToDo Kenta君と同じキー（データ共有）
+const KINTAI_URL  = 'https://tms.rakurakukintai.jp/app/home';
+const IN_DEADLINE = 9 * 60 + 30;                    // 9:30
+const OUT_START   = 19 * 60;                        // 19:00
+const SNOOZE_MIN  = 10;
+const DOW = ['日','月','火','水','木','金','土'];
+
+// ─── 状態 ───────────────────────────────────────────────
+let attendance = {};
+try{ attendance = JSON.parse(localStorage.getItem('kin_attend') || localStorage.getItem('tbiz_attend') || '{}') || {}; }catch(e){ attendance = {}; }
+let holidays = {};
+let ignoreUntil = 0;
+const alertEls = {};
+const dismissedUntil = {in:0, out:0};
+let blinkTimer = null, tick = 0, actx = null;
+
+// ─── ユーティリティ ──────────────────────────────────────
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2,'0');
+function nowDate(){ return new Date(); }
+function nowMs(){ return nowDate().getTime(); }
+function dateStr(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+function todayStr(){ return dateStr(nowDate()); }
+function hhmm(d){ return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+function normTime(s){ const m = /^(\d{1,2}):(\d{2})/.exec(s||''); return m ? pad(+m[1])+':'+m[2] : ''; }
+function snoozed(until){ return !!until && nowMs() < until; }
+function saveLocal(){ try{ localStorage.setItem('kin_attend', JSON.stringify(attendance)); }catch(e){} }
+let toastTimer = null;
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200); }
+function setSync(s){ const el=$('sync'); const m={ok:['☁️ 同期済','ok'],err:['⚠️ オフライン','err'],syncing:['🔄 同期中…','']}; const [txt,cls]=m[s]||m.ok; el.textContent=txt; el.className='sync '+cls; }
+
+// ─── Supabase ────────────────────────────────────────────
+const HDR = {'Content-Type':'application/json','apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY};
+async function sbGet(){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}?key=eq.${SB_KEY_NAME}&select=data`, {headers:HDR});
+    if(!r.ok) return {ok:false};
+    const arr = await r.json();
+    const data = arr[0] ? arr[0].data : null;
+    return {ok:true, data: (data && typeof data==='object' && !Array.isArray(data)) ? data : null};
+  }catch(e){ return {ok:false}; }
+}
+async function sbPut(obj){
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/${SB_TABLE}`, {
+      method:'POST',
+      headers:{...HDR,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify({key:SB_KEY_NAME, data:obj, updated_at:new Date().toISOString()})
+    });
+    return r.ok || r.status===201;
+  }catch(e){ return false; }
+}
+function mergeRec(a,b){
+  const r = {...a};
+  r.in  = a.in  || b.in;
+  r.out = a.out || b.out;
+  const si = Math.max(a.snoozeInUntil||0,  b.snoozeInUntil||0);
+  const so = Math.max(a.snoozeOutUntil||0, b.snoozeOutUntil||0);
+  if(si) r.snoozeInUntil = si;
+  if(so) r.snoozeOutUntil = so;
+  Object.keys(r).forEach(k=>{ if(r[k]===undefined||r[k]==='') delete r[k]; });
+  return r;
+}
+// 今日のレコードだけ読み→マージ→書き（他の日・他端末の変更を壊さない）
+async function pushToday(force){
+  const today = todayStr();
+  const remote = await sbGet();
+  if(!remote.ok) return false;
+  const data = remote.data || {};
+  const local = attendance[today] || {};
+  data[today] = force ? {...local} : mergeRec(data[today]||{}, local);
+  Object.keys(data[today]).forEach(k=>{ if(data[today][k]===undefined||data[today][k]==='') delete data[today][k]; });
+  if(!await sbPut(data)) return false;
+  attendance = data; saveLocal();
+  return true;
+}
+async function flushPending(){
+  const p = localStorage.getItem('kin_pending');
+  if(!p) return true;
+  setSync('syncing');
+  const ok = await pushToday(p==='force');
+  if(ok){ localStorage.removeItem('kin_pending'); setSync('ok'); render(); check(); }
+  else setSync('err');
+  return ok;
+}
+async function pull(){
+  if(nowMs() < ignoreUntil) return;
+  if(localStorage.getItem('kin_pending')){ await flushPending(); return; }
+  const r = await sbGet();
+  if(!r.ok){ setSync('err'); return; }
+  setSync('ok');
+  if(r.data){ attendance = r.data; saveLocal(); }
+  render(); check();
+}
+function afterWrite(force){
+  ignoreUntil = nowMs() + 3000;
+  saveLocal();
+  const prev = localStorage.getItem('kin_pending');
+  localStorage.setItem('kin_pending', (force || prev==='force') ? 'force' : '1');
+  render(); check();
+  setSync('syncing');
+  flushPending();
+}
+
+// ─── 祝日 ───────────────────────────────────────────────
+async function loadHolidays(year){
+  const k = 'kin_hol_'+year;
+  try{ const c = localStorage.getItem(k); if(c){ Object.assign(holidays, JSON.parse(c)); return; } }catch(e){}
+  try{
+    const r = await fetch(`https://holidays-jp.github.io/api/v1/${year}/date.json`);
+    if(r.ok){ const j = await r.json(); localStorage.setItem(k, JSON.stringify(j)); Object.assign(holidays, j); }
+  }catch(e){}
+}
+function isAlertDay(d){
+  const dow = d.getDay();
+  if(dow===0 || dow===6) return false;
+  if(localStorage.getItem('kin_force') === dateStr(d)) return true;
+  return !holidays[dateStr(d)];
+}
+function forceToday(){ localStorage.setItem('kin_force', todayStr()); render(); check(); toast('今日はアラートを有効にしました'); }
+
+// ─── 打刻 ───────────────────────────────────────────────
+function clockIn(){
+  const t = todayStr(), rec = attendance[t] || {};
+  if(rec.in){ toast('出勤打刻は済んでいます'); return; }
+  rec.in = hhmm(nowDate()); delete rec.snoozeInUntil;
+  attendance[t] = rec;
+  window.open(KINTAI_URL, '_blank');
+  toast('🟢 出勤打刻しました — '+rec.in);
+  afterWrite(false);
+}
+function clockOut(){
+  const t = todayStr(), rec = attendance[t] || {};
+  if(!rec.in){ toast('⚠️ 先に出勤打刻を（「時刻を修正」から入力もできます）'); return; }
+  if(rec.out){ toast('退勤打刻は済んでいます'); return; }
+  rec.out = hhmm(nowDate()); delete rec.snoozeOutUntil;
+  attendance[t] = rec;
+  window.open(KINTAI_URL, '_blank');
+  toast('🔴 退勤打刻しました — '+rec.out);
+  afterWrite(false);
+}
+function snooze(kind){
+  const t = todayStr(), rec = attendance[t] || {};
+  rec[kind==='in' ? 'snoozeInUntil' : 'snoozeOutUntil'] = nowMs() + SNOOZE_MIN*60000;
+  attendance[t] = rec;
+  closeAlert(kind);
+  toast(`${SNOOZE_MIN}分後に再通知します`);
+  afterWrite(false);
+}
+function saveEdit(){
+  const t = todayStr(), rec = attendance[t] || {};
+  const i = $('editIn').value, o = $('editOut').value;
+  if(i) rec.in = i; else { delete rec.in; delete rec.snoozeInUntil; }
+  if(o) rec.out = o; else { delete rec.out; }
+  attendance[t] = rec;
+  toast('修正しました');
+  afterWrite(true);
+}
+
+// ─── アラート ────────────────────────────────────────────
+function unlockAudio(){
+  try{
+    if(!actx){ const C = window.AudioContext || window.webkitAudioContext; if(C) actx = new C(); }
+    if(actx && actx.state==='suspended') actx.resume();
+  }catch(e){}
+}
+['pointerdown','keydown','touchstart'].forEach(ev=>document.addEventListener(ev, unlockAudio, {passive:true}));
+function beep(){
+  try{
+    unlockAudio(); if(!actx) return;
+    [880,1046,880,1046,1318].forEach((f,i)=>{
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.connect(g); g.connect(actx.destination);
+      const t = actx.currentTime + i*0.28;
+      o.frequency.value = f; g.gain.setValueAtTime(0.35,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.24);
+      o.start(t); o.stop(t+0.24);
+    });
+  }catch(e){}
+}
+function startBlink(){
+  if(blinkTimer) return;
+  let on = true;
+  blinkTimer = setInterval(()=>{ document.title = on ? '🚨 打刻してください！' : '勤怠アラート'; on = !on; }, 800);
+}
+function stopBlink(){ if(blinkTimer){ clearInterval(blinkTimer); blinkTimer=null; } document.title = '勤怠アラート'; }
+function notify(kind){
+  try{
+    if(typeof Notification!=='undefined' && Notification.permission==='granted' && document.hidden){
+      new Notification(kind==='in' ? '⏰ 出勤打刻が未完了です' : '🚨 退勤打刻を忘れています', {body:'楽楽勤怠で打刻してください'});
+    }
+  }catch(e){}
+}
+function openAlert(kind){
+  if(alertEls[kind]) return;
+  if(nowMs() < dismissedUntil[kind]) return;
+  const isIn = kind==='in';
+  const el = document.createElement('div');
+  el.className = 'warn-overlay';
+  el.id = 'alert-'+kind;
+  el.innerHTML = `<div class="warn-box ${isIn?'in':'out'}">
+    <button class="x" onclick="hideAlert('${kind}')" aria-label="閉じる">×</button>
+    <div class="icon">${isIn?'⏰':'🚨'}</div>
+    <h2>${isIn?'出勤打刻が未完了です！':'退勤打刻を忘れています！'}</h2>
+    <div class="wtime" data-clock>${hhmm(nowDate())}</div>
+    <p>楽楽勤怠への${isIn?'出勤':'退勤'}打刻が完了していません。<br>今すぐ打刻してください！</p>
+    <button class="wbtn" onclick="${isIn?'clockIn()':'clockOut()'}">${isIn?'🟢 今すぐ出勤打刻する':'🔴 今すぐ退勤打刻する'}</button><br>
+    <button class="snz" onclick="snooze('${kind}')">${SNOOZE_MIN}分後にまた通知する</button>
+  </div>`;
+  document.body.appendChild(el);
+  alertEls[kind] = el;
+  beep(); notify(kind); startBlink();
+}
+function closeAlert(kind){
+  if(alertEls[kind]){ alertEls[kind].remove(); delete alertEls[kind]; }
+  if(!Object.keys(alertEls).length) stopBlink();
+}
+function hideAlert(kind){ dismissedUntil[kind] = nowMs() + 60000; closeAlert(kind); }
+
+function check(){
+  const d = nowDate(), rec = attendance[dateStr(d)] || {};
+  const mins = d.getHours()*60 + d.getMinutes();
+  // 解決済み／スヌーズ中／休日 → 出ているアラートを引っ込める（他端末の操作もここで反映）
+  if(rec.in  || snoozed(rec.snoozeInUntil))  closeAlert('in');
+  if(rec.out || snoozed(rec.snoozeOutUntil)) closeAlert('out');
+  if(!isAlertDay(d)){ closeAlert('in'); closeAlert('out'); return; }
+  if(!rec.in && mins >= IN_DEADLINE && !snoozed(rec.snoozeInUntil)) openAlert('in');
+  if(rec.in && !rec.out && mins >= OUT_START && !snoozed(rec.snoozeOutUntil)) openAlert('out');
+}
+
+// ─── 描画 ───────────────────────────────────────────────
+function render(){
+  const d = nowDate(), t = dateStr(d), rec = attendance[t] || {};
+  $('dateLabel').textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${DOW[d.getDay()]}）`;
+  const dot = $('dot'), st = $('statusText');
+  dot.className = 'dot';
+  if(rec.out){ dot.classList.add('done'); st.textContent = '退勤済み ✓'; }
+  else if(rec.in){ dot.classList.add('work'); st.textContent = '出勤中'; }
+  else { st.textContent = '未打刻'; }
+  $('times').textContent = (rec.in||rec.out) ? `出勤 ${normTime(rec.in)||'—'} → 退勤 ${normTime(rec.out)||'—'}` : '';
+  $('btnIn').disabled  = !!rec.in;
+  $('btnOut').disabled = !rec.in || !!rec.out;
+
+  const note = $('dayNote');
+  if(!isAlertDay(d)){
+    const hn = holidays[t];
+    note.hidden = false;
+    note.innerHTML = (hn ? `今日は祝日（${hn}）` : '今日は土日') + 'のためアラートは出ません。' +
+      (hn ? ' <button onclick="forceToday()">今日だけアラートを有効にする</button>' : '');
+  } else { note.hidden = true; }
+
+  let h = '';
+  for(let i=0;i<7;i++){
+    const dd = new Date(d.getFullYear(), d.getMonth(), d.getDate()-i);
+    const r = attendance[dateStr(dd)] || {};
+    const off = dd.getDay()===0 || dd.getDay()===6;
+    h += `<div class="hist-row${off?' off':''}"><span>${dd.getMonth()+1}/${dd.getDate()}（${DOW[dd.getDay()]}）</span><span>出 ${normTime(r.in)||'—'}　退 ${normTime(r.out)||'—'}</span></div>`;
+  }
+  $('history').innerHTML = h;
+
+  const nb = $('btnNotif');
+  nb.hidden = !(typeof Notification!=='undefined' && Notification.permission==='default');
+}
+function tickClock(){
+  const d = nowDate();
+  $('clock').textContent = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  document.querySelectorAll('[data-clock]').forEach(e=> e.textContent = hhmm(d));
+}
+function askNotif(){ try{ Notification.requestPermission().then(()=>render()); }catch(e){} }
+$('editBox').addEventListener('toggle', ()=>{
+  if($('editBox').open){
+    const rec = attendance[todayStr()] || {};
+    $('editIn').value = normTime(rec.in); $('editOut').value = normTime(rec.out);
+  }
+});
+
+// ─── 起動 ───────────────────────────────────────────────
+async function init(){
+  render(); tickClock();
+  await loadHolidays(nowDate().getFullYear());
+  render();
+  await pull();
+  check();
+}
+setInterval(tickClock, 1000);
+setInterval(check, 15000);
+setInterval(()=>{ tick++; if(!document.hidden || tick%4===0) pull(); }, 5000);
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ pull(); check(); } });
+window.addEventListener('online', ()=>{ pull(); });
+window.addEventListener('offline', ()=> setSync('err'));
+init();
+
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
