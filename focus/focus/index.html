@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="集中">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" id="fav" type="image/png" href="icon-192.png">
 <title>集中スタンプ</title>
 <style>
 :root{--bg:#1B1A2E;--card:#26253D;--ink:#F5F1E8;--sub:#9C9AB5;--red:#E8503A;--gold:#F2B84B;--ok:#5CC48A}
@@ -288,6 +289,7 @@ function renderHome(){
     $('arc').setAttribute('stroke',onBreak?'#5CC48A':'#E8503A');
     $('running').querySelector('.quit').textContent= onBreak?'休憩をおわる':'やめる（スタンプなし）';
   }
+  if(!run){ if(awaiting) favAlert(); else favIdle(); }
 }
 function renderLog(){
   $('stToday').textContent=todayStamps().length;
@@ -312,6 +314,65 @@ function moveMonth(d){viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMo
 function setGoal(g){goal=g;lsSet(K_GOAL,g);renderLog();}
 
 /* ---- タイマー ---- */
+/* ---- ファビコン（タブのアイコン） ---- */
+let favLast='';
+function setFav(key,draw){
+  if(key===favLast) return;
+  try{
+    const c=document.createElement('canvas');c.width=c.height=64;
+    const g=c.getContext&&c.getContext('2d'); if(!g) return;
+    draw(g);
+    const url=c.toDataURL('image/png');
+    const old=document.getElementById('fav');
+    const l=document.createElement('link');l.id='fav';l.rel='icon';l.type='image/png';l.href=url;
+    if(old) old.remove();
+    document.head.appendChild(l);
+    favLast=key;
+  }catch(e){}
+}
+function favBase(g){
+  g.fillStyle='#1B1A2E';
+  g.beginPath();
+  if(g.roundRect) g.roundRect(0,0,64,64,14); else g.rect(0,0,64,64);
+  g.fill();
+}
+function favIdle(){
+  setFav('idle',g=>{
+    favBase(g);
+    g.strokeStyle='#E8503A';g.lineWidth=6;g.lineCap='round';
+    g.beginPath();g.arc(32,36,21,0,Math.PI*2);g.stroke();
+    g.fillStyle='#E8503A';g.fillRect(27,5,10,7);          // つまみ
+    g.lineWidth=5;g.beginPath();g.moveTo(32,36);g.lineTo(32,24);g.stroke();   // 針
+    g.beginPath();g.moveTo(32,36);g.lineTo(41,41);g.stroke();
+  });
+}
+function favAlert(){
+  setFav('alert',g=>{
+    g.fillStyle='#E8503A';g.beginPath();
+    if(g.roundRect) g.roundRect(0,0,64,64,14); else g.rect(0,0,64,64);
+    g.fill();
+    g.fillStyle='#fff';g.font='bold 46px sans-serif';g.textAlign='center';g.textBaseline='middle';
+    g.fillText('!',32,35);
+  });
+}
+function favRun(left,total,type){
+  const secs=Math.max(0,Math.ceil(left/1000));
+  const inMin=secs>=60;
+  const label=inMin?String(Math.ceil(secs/60)):String(secs);
+  const frac=Math.max(0,Math.min(1,left/total));
+  const col=type==='break'?'#5CC48A':'#E8503A';
+  setFav(type+label+(inMin?'m':'s')+Math.round(frac*48),g=>{
+    favBase(g);
+    g.lineWidth=7;g.lineCap='round';
+    g.strokeStyle='#3a3960';g.beginPath();g.arc(32,32,25,0,Math.PI*2);g.stroke();
+    g.strokeStyle=col;g.beginPath();g.arc(32,32,25,-Math.PI/2,-Math.PI/2+Math.PI*2*frac);g.stroke();
+    g.fillStyle='#F5F1E8';g.textAlign='center';g.textBaseline='middle';
+    g.font=(label.length>=3?'bold 22px':'bold 28px')+' sans-serif';
+    g.fillText(label,32,inMin?33:31);
+    if(!inMin){g.font='bold 11px sans-serif';g.fillStyle=col;g.fillText('SEC',32,48);}
+    else{g.font='bold 11px sans-serif';g.fillStyle=col;g.fillText('MIN',32,48);}
+  });
+}
 function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000));return pad(Math.floor(s/60))+':'+pad(s%60);}
 function tick(){
   if(!run){return;}
@@ -320,6 +381,7 @@ function tick(){
   const frac=Math.max(0,Math.min(1,left/run.total));
   $('arc').setAttribute('stroke-dashoffset',String(728.8*(1-frac)));
   document.title=(run.type==='break'?'☕ ':'🔥 ')+fmt(left)+' 集中スタンプ';
+  favRun(left,run.total,run.type);
   if(left<=0) finishRun();
 }
 function startLoop(){clearInterval(timer);timer=setInterval(tick,250);tick();}
