@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1B1A2E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="集中">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>集中スタンプ</title>
+<style>
+:root{--bg:#1B1A2E;--card:#26253D;--ink:#F5F1E8;--sub:#9C9AB5;--red:#E8503A;--gold:#F2B84B;--ok:#5CC48A}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+body{min-height:100vh;min-height:100dvh;padding:env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 24px)}
+.wrap{max-width:460px;margin:0 auto}
+h1{font-size:16px;margin:18px 0 4px;letter-spacing:.08em;color:var(--sub);font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.tabs{display:flex;gap:8px}
+.tab{background:none;border:1px solid #3a3960;color:var(--sub);border-radius:999px;padding:5px 12px;font-size:12px}
+.tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border-radius:20px;padding:18px;margin-top:14px}
+.slots{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin:6px 0 2px}
+.slot{width:54px;height:54px;border-radius:50%;border:2px dashed #4a4972;display:flex;align-items:center;justify-content:center}
+.slot.f{border:none}
+.sub{font-size:12px;color:var(--sub);text-align:center;margin-top:8px}
+.chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.chip{flex:1;min-width:58px;background:#1B1A2E;border:2px solid #3a3960;color:var(--ink);border-radius:14px;padding:12px 0;font-size:18px;font-weight:700}
+.chip small{display:block;font-size:10px;color:var(--sub);font-weight:400}
+.chip.on{border-color:var(--red);background:#3a1f26}
+input.lab{width:100%;margin-top:10px;font-family:inherit;background:#1B1A2E;border:1px solid #3a3960;border-radius:12px;color:var(--ink);padding:12px;font-size:15px}
+input.lab::placeholder{color:#6d6b8c}
+.go{position:relative;width:100%;margin-top:16px;border:none;color:#fff;font-size:22px;font-weight:900;border-radius:20px;padding:22px;letter-spacing:.18em;
+ background:linear-gradient(#ff7a5f,#e8503a 55%,#d63f2a);
+ box-shadow:0 10px 0 #8f2314,0 16px 22px rgba(0,0,0,.45),inset 0 3px 0 rgba(255,255,255,.45),inset 0 -4px 0 rgba(0,0,0,.12);
+ text-shadow:0 2px 0 rgba(0,0,0,.25);transition:transform .08s,box-shadow .08s;cursor:var(--hammer,pointer)}
+.go:hover{filter:brightness(1.06)}
+.go.hit{transform:translateY(9px);box-shadow:0 1px 0 #8f2314,0 4px 8px rgba(0,0,0,.4),inset 0 3px 0 rgba(255,255,255,.3)}
+.go:disabled{opacity:.8}
+.hammer{position:fixed;width:110px;height:110px;pointer-events:none;z-index:30;transform-origin:78% 84%;animation:swing .26s cubic-bezier(.5,0,.9,.4) forwards}
+@keyframes swing{0%{transform:rotate(-55deg);opacity:1}85%{transform:rotate(4deg);opacity:1}100%{transform:rotate(4deg);opacity:0}}
+.boom{position:fixed;width:20px;height:20px;border-radius:50%;border:4px solid #F2B84B;pointer-events:none;z-index:29;transform:translate(-50%,-50%);animation:boom .45s ease-out forwards}
+@keyframes boom{to{width:150px;height:150px;opacity:0;border-width:1px}}
+body.shake{animation:shake .25s}
+@keyframes shake{25%{transform:translate(3px,-3px)}50%{transform:translate(-3px,2px)}75%{transform:translate(2px,2px)}}
+.ring{position:relative;width:260px;height:260px;margin:10px auto}
+.ring svg{transform:rotate(-90deg)}
+.ring .t{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .n{font-size:56px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.ring .l{font-size:13px;color:var(--sub);margin-top:4px;max-width:200px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.quit.arm{color:var(--red);font-weight:700}
+.quit{display:block;margin:6px auto 0;background:none;border:none;color:var(--sub);font-size:13px;text-decoration:underline;padding:10px}
+.stats{display:flex;gap:8px;margin-top:14px}
+.stat{flex:1;background:var(--card);border-radius:16px;padding:12px 6px;text-align:center}
+.stat b{display:block;font-size:22px}
+.stat span{font-size:10px;color:var(--sub)}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+.cal .h{font-size:10px;color:var(--sub);text-align:center}
+.cal .d{aspect-ratio:1;border-radius:10px;background:#1B1A2E;font-size:10px;color:var(--sub);padding:3px 4px;position:relative}
+.cal .d.today{outline:2px solid var(--gold)}
+.cal .d i{position:absolute;right:3px;bottom:2px;left:3px;text-align:right;font-style:normal;font-weight:800;color:var(--red);font-size:15px}
+.hide{display:none!important}
+#done{position:fixed;inset:0;background:rgba(10,9,24,.94);z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.bigstamp{width:200px;height:200px;position:fixed;pointer-events:none}
+.aim{width:220px;height:220px;border-radius:50%;border:3px dashed #6b5a78;display:flex;align-items:center;justify-content:center;color:#8b7a98;font-size:15px;font-weight:700;line-height:1.5;margin-bottom:8px;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.05);border-color:var(--red)}}
+.err{font-size:12px;color:var(--red);min-height:16px;margin-top:6px;text-align:center}
+#done{user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.bigstamp.slam{animation:slam .55s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes slam{0%{transform:scale(3) rotate(-25deg);opacity:0}60%{transform:scale(.92) rotate(-8deg);opacity:1}100%{transform:scale(1) rotate(-8deg);opacity:1}}
+#done h2{font-size:26px;margin:18px 0 4px}
+#done p{color:var(--sub);margin:0 0 20px}
+.row{display:flex;gap:10px;width:100%;max-width:340px}
+.row button{flex:1;padding:15px 0;border-radius:14px;border:none;font-size:15px;font-weight:700}
+.b1{background:var(--red);color:#fff}.b2{background:#3a3960;color:var(--ink)}
+.confetti{position:fixed;top:-10px;width:8px;height:14px;z-index:11;animation:fall linear forwards;pointer-events:none}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+.brk{color:var(--ok)}
+.note{font-size:12px;color:var(--sub);line-height:1.7;margin-top:16px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span>集中スタンプ</span><span class="tabs"><button class="tab on" id="tabHome" onclick="show('home')">ホーム</button><button class="tab" id="tabLog" onclick="show('log')">きろく</button></span></h1>
+
+  <!-- ホーム -->
+  <div id="home">
+    <div class="card" id="todayCard">
+      <div class="slots" id="slots"></div>
+      <div class="sub" id="todaySub"></div>
+    </div>
+
+    <div id="setup" class="card">
+      <div class="chips" id="chips"></div>
+      <input class="lab" id="custom" inputmode="text" maxlength="10" placeholder="自由入力（例: 20　30秒　90分）" autocomplete="off" oninput="onCustom(event)" oncompositionend="onCustom()">
+      <div class="err" id="err"></div>
+      <input class="lab" id="label" maxlength="40" placeholder="何に集中する？（書かなくてOK）" autocomplete="off">
+      <button class="go" id="goBtn" onclick="goClick(event)">スタート</button>
+    </div>
+
+    <div id="running" class="card hide">
+      <div class="ring">
+        <svg width="260" height="260" viewBox="0 0 260 260"><circle cx="130" cy="130" r="116" fill="none" stroke="#3a3960" stroke-width="12"/><circle id="arc" cx="130" cy="130" r="116" fill="none" stroke="#E8503A" stroke-width="12" stroke-linecap="round" stroke-dasharray="728.8" stroke-dashoffset="0"/></svg>
+        <div class="t"><div class="n" id="remain">25:00</div><div class="l" id="runLabel"></div></div>
+      </div>
+      <button class="quit" onclick="quitRun()">やめる（スタンプなし）</button>
+    </div>
+  </div>
+
+  <!-- きろく -->
+  <div id="log" class="hide">
+    <div class="stats">
+      <div class="stat"><b id="stToday">0</b><span>今日</span></div>
+      <div class="stat"><b id="stWeek">0</b><span>今週（分）</span></div>
+      <div class="stat"><b id="stStreak">0</b><span>連続日数</span></div>
+      <div class="stat"><b id="stTotal">0</b><span>合計</span></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="tab" onclick="moveMonth(-1)">‹</button>
+        <b id="monthTitle"></b>
+        <button class="tab" onclick="moveMonth(1)">›</button>
+      </div>
+      <div class="cal" id="cal"></div>
+    </div>
+    <div class="card">
+      <div style="font-size:12px;color:var(--sub);margin-bottom:6px">1日の目標スタンプ数</div>
+      <div class="chips" id="goalChips"></div>
+    </div>
+  </div>
+
+  <div class="note">終わったらスタンプ。途中でやめたらスタンプはなし。<br>短くてもOK、まずは10分から。</div>
+</div>
+
+<div id="done" class="hide">
+  <div id="aim" class="aim hide"><span>ここを<br>タップ</span></div>
+  <svg id="bigStamp" class="bigstamp hide" viewBox="0 0 200 200"></svg>
+  <h2 id="doneTitle">できた！</h2>
+  <p id="doneSub"></p>
+  <div class="row hide" id="doneBtns"><button class="b2" onclick="startBreak()">休憩 5分</button><button class="b1" onclick="closeDone()">もう1回</button></div>
+</div>
+
+<script>
+'use strict';
+const PRESETS=[10,15,25,45,60];
+const K_STAMPS='focus_stamps', K_RUN='focus_run', K_GOAL='focus_goal', K_MIN='focus_min';
+const $=id=>document.getElementById(id);
+const pad=n=>String(n).padStart(2,'0');
+function now(){return Date.now();}
+function dkey(ms){const d=new Date(ms);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function ls(k,def){try{const v=localStorage.getItem(k);return v==null?def:JSON.parse(v);}catch(e){return def;}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+
+let stamps=ls(K_STAMPS,[]);
+let run=ls(K_RUN,null);
+let goal=ls(K_GOAL,4);
+let selMin=ls(K_MIN,25);
+let timer=null, wakeLock=null, viewMonth=new Date(now());
+let audioCtx=null, customActive=false, pending=ls('focus_pending',null), awaiting=false;
+
+/* ---- 音 ---- */
+function unlockAudio(){try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();}catch(e){}}
+function tone(f,t0,dur,vol){if(!audioCtx)return;try{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=f;o.connect(g);g.connect(audioCtx.destination);const t=audioCtx.currentTime+t0;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+dur);o.start(t);o.stop(t+dur+0.05);}catch(e){}}
+function chime(){tone(784,0,.4,.25);tone(988,.18,.4,.25);tone(1319,.36,.7,.3);}
+function thud(){tone(110,0,.25,.5);}
+
+/* ---- スタンプ描画 ---- */
+const PRAISE=['よくやった！','ナイス集中！','積み上げたね','いい調子！','やりきった！','えらい！'];
+function stampSvg(label,small){
+  const col='#E8503A';
+  const d=new Date(now());
+  const date=(d.getMonth()+1)+'/'+d.getDate();
+  return `<g transform="rotate(-8 100 100)">
+    <circle cx="100" cy="100" r="92" fill="none" stroke="${col}" stroke-width="7"/>
+    <circle cx="100" cy="100" r="80" fill="none" stroke="${col}" stroke-width="2"/>
+    <text x="100" y="${small?112:104}" text-anchor="middle" font-size="${small?34:44}" font-weight="900" fill="${col}" font-family="'Hiragino Mincho ProN','Yu Mincho',serif">達成</text>
+    ${small?'':`<line x1="40" y1="116" x2="160" y2="116" stroke="${col}" stroke-width="2"/><text x="100" y="140" text-anchor="middle" font-size="20" font-weight="700" fill="${col}">${label}</text><text x="100" y="64" text-anchor="middle" font-size="14" fill="${col}">${date}</text>`}
+  </g>`;
+}
+function miniStamp(){return `<svg width="54" height="54" viewBox="0 0 200 200">${stampSvg('',true)}</svg>`;}
+
+/* ---- 集計 ---- */
+function todayStamps(){const k=dkey(now());return stamps.filter(s=>dkey(s.t)===k);}
+function streak(){
+  const days=new Set(stamps.map(s=>dkey(s.t)));
+  let n=0,t=now();
+  if(!days.has(dkey(t))) t-=86400000;
+  while(days.has(dkey(t))){n++;t-=86400000;}
+  return n;
+}
+function weekMinutes(){
+  const d=new Date(now());const dow=(d.getDay()+6)%7;
+  const start=new Date(d.getFullYear(),d.getMonth(),d.getDate()-dow).getTime();
+  return stamps.filter(s=>s.t>=start).reduce((a,s)=>a+s.min,0);
+}
+
+/* ---- 画面 ---- */
+function show(v){
+  $('home').classList.toggle('hide',v!=='home');
+  $('log').classList.toggle('hide',v!=='log');
+  $('tabHome').classList.toggle('on',v==='home');
+  $('tabLog').classList.toggle('on',v==='log');
+  if(v==='log') renderLog(); else renderHome();
+}
+function renderChips(){
+  $('chips').innerHTML=PRESETS.map(m=>`<button class="chip ${(!customActive&&m===selMin)?'on':''}" onclick="pickMin(${m})">${m}<small>分</small></button>`).join('');
+}
+function pickMin(m){selMin=m;lsSet(K_MIN,m);customActive=false;$('custom').value='';$('err').textContent='';renderChips();}
+function parseDur(str){
+  str=toHalf(str||'').replace(/[\s\u3000]+/g,'');
+  if(!str) return null;
+  const m=/^(\d+(?:\.\d+)?)\s*(秒|s|sec|分|m|min)?$/i.exec(str);
+  if(!m) return null;
+  let v=parseFloat(m[1]); const u=(m[2]||'分').toLowerCase();
+  if(u==='秒'||u[0]==='s') v=v/60;
+  if(v<5/60-1e-9||v>180) return null;
+  return v;
+}
+function durLabel(min){return min<1?Math.round(min*60)+'秒':(Math.round(min*10)/10)+'分';}
+function toHalf(v){return v.replace(/[０-９．ａ-ｚＡ-Ｚ]/g,c=>c==='．'?'.':String.fromCharCode(c.charCodeAt(0)-65248));}
+function normCustom(){
+  const el=$('custom'), v=el.value, h=toHalf(v);
+  if(h!==v){const pos=el.selectionStart;el.value=h;try{el.setSelectionRange(pos,pos);}catch(e){}}
+}
+function onCustom(ev){
+  if(!(ev&&ev.isComposing)) normCustom();
+  const t=$('custom').value.trim();
+  customActive=!!t;
+  $('err').textContent='';
+  renderChips();
+}
+const HAMMER_G=`<g transform="rotate(-45 32 32)"><rect x="29" y="22" width="7" height="40" rx="3.5" fill="#b07a45" stroke="#6e4a26" stroke-width="1.5"/><rect x="12" y="8" width="42" height="19" rx="4" fill="#9aa1b8" stroke="#4d5266" stroke-width="2"/><rect x="15" y="11" width="36" height="5" rx="2" fill="#d6dbea"/><rect x="12" y="8" width="8" height="19" rx="3" fill="#6f758c"/></g>`;
+function hammerSvg(px){return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 64 64">${HAMMER_G}</svg>`;}
+function hammerCursor(){return `url("data:image/svg+xml,${encodeURIComponent(hammerSvg(48))}") 8 8, pointer`;}
+function swingAt(x,y,btn){
+  const h=document.createElement('div');h.className='hammer';
+  h.innerHTML=hammerSvg(110);
+  h.style.left=(x-30)+'px';h.style.top=(y-30)+'px';
+  document.body.appendChild(h);
+  setTimeout(()=>{
+    btn.classList.add('hit');document.body.classList.add('shake');
+    const b=document.createElement('div');b.className='boom';b.style.left=x+'px';b.style.top=y+'px';document.body.appendChild(b);
+    unlockAudio();thud();tone(220,0.02,.12,.3);
+    setTimeout(()=>{b.remove();document.body.classList.remove('shake');},450);
+  },220);
+  setTimeout(()=>{h.remove();btn.classList.remove('hit');},520);
+}
+function goClick(ev){
+  const btn=ev&&ev.currentTarget;
+  normCustom();customActive=!!$('custom').value.trim();
+  if(customActive){
+    const v0=parseDur($('custom').value);
+    if(v0==null){$('err').textContent='5秒〜180分の範囲で入力してね（例: 20 / 30秒 / 90分）';return;}
+  }
+  const v=customActive?parseDur($('custom').value):selMin;
+  if(!btn){startFocus(v);return;}
+  unlockAudio();
+  const r=btn.getBoundingClientRect();
+  let x=ev.clientX,y=ev.clientY;
+  if(!x&&!y){x=r.left+r.width/2;y=r.top+r.height/2;}
+  btn.disabled=true;
+  swingAt(x,y,btn);
+  setTimeout(()=>{btn.disabled=false;startFocus(v);},520);
+}
+function goClickOld(){
+  if(customActive){
+    const v=parseDur($('custom').value);
+    if(v==null){$('err').textContent='5秒〜180分の範囲で入力してね（例: 20 / 30秒 / 90分）';return;}
+    startFocus(v);
+  }else startFocus(selMin);
+}
+function renderHome(){
+  renderChips();
+  const ts=todayStamps();
+  const n=Math.max(goal,ts.length);
+  let h='';
+  for(let i=0;i<n;i++) h+= i<ts.length?`<div class="slot f">${miniStamp()}</div>`:`<div class="slot"></div>`;
+  $('slots').innerHTML=h;
+  const mins=ts.reduce((a,s)=>a+s.min,0);
+  $('todaySub').textContent= ts.length>=goal ? `今日の目標クリア！ 合計${Math.round(mins*10)/10}分 🎉` : `今日 ${ts.length} / ${goal}　（合計${Math.round(mins*10)/10}分）`;
+  const running=!!run && run.type==='focus';
+  const onBreak=!!run && run.type==='break';
+  $('setup').classList.toggle('hide',!!run);
+  $('running').classList.toggle('hide',!run);
+  if(run){
+    $('runLabel').textContent= onBreak?'休憩中':(run.label||'集中中');
+    $('runLabel').className='l'+(onBreak?' brk':'');
+    $('arc').setAttribute('stroke',onBreak?'#5CC48A':'#E8503A');
+    $('running').querySelector('.quit').textContent= onBreak?'休憩をおわる':'やめる（スタンプなし）';
+  }
+}
+function renderLog(){
+  $('stToday').textContent=todayStamps().length;
+  $('stWeek').textContent=Math.round(weekMinutes());
+  $('stStreak').textContent=streak();
+  $('stTotal').textContent=stamps.length;
+  const y=viewMonth.getFullYear(), m=viewMonth.getMonth();
+  $('monthTitle').textContent=`${y}年${m+1}月`;
+  const first=new Date(y,m,1), lead=(first.getDay()+6)%7, days=new Date(y,m+1,0).getDate();
+  const cnt={};stamps.forEach(s=>{const k=dkey(s.t);cnt[k]=(cnt[k]||0)+1;});
+  const tk=dkey(now());
+  let h=['月','火','水','木','金','土','日'].map(x=>`<div class="h">${x}</div>`).join('');
+  for(let i=0;i<lead;i++) h+='<div></div>';
+  for(let d=1;d<=days;d++){
+    const k=`${y}-${pad(m+1)}-${pad(d)}`;
+    h+=`<div class="d ${k===tk?'today':''}">${d}${cnt[k]?`<i>${cnt[k]}</i>`:''}</div>`;
+  }
+  $('cal').innerHTML=h;
+  $('goalChips').innerHTML=[2,3,4,5,6,8].map(g=>`<button class="chip ${g===goal?'on':''}" onclick="setGoal(${g})">${g}</button>`).join('');
+}
+function moveMonth(d){viewMonth=new Date(viewMonth.getFullYear(),viewMonth.getMonth()+d,1);renderLog();}
+function setGoal(g){goal=g;lsSet(K_GOAL,g);renderLog();}
+
+/* ---- タイマー ---- */
+function fmt(ms){const s=Math.max(0,Math.ceil(ms/1000));return pad(Math.floor(s/60))+':'+pad(s%60);}
+function tick(){
+  if(!run){return;}
+  const left=run.end-now();
+  $('remain').textContent=fmt(left);
+  const frac=Math.max(0,Math.min(1,left/run.total));
+  $('arc').setAttribute('stroke-dashoffset',String(728.8*(1-frac)));
+  document.title=(run.type==='break'?'☕ ':'🔥 ')+fmt(left)+' 集中スタンプ';
+  if(left<=0) finishRun();
+}
+function startLoop(){clearInterval(timer);timer=setInterval(tick,250);tick();}
+async function lockScreen(){try{if('wakeLock' in navigator){wakeLock=await navigator.wakeLock.request('screen');}}catch(e){}}
+function unlockScreen(){try{if(wakeLock){wakeLock.release();wakeLock=null;}}catch(e){}}
+
+function startFocus(min){
+  unlockAudio();
+  const total=Math.round(min*60000);
+  run={type:'focus',end:now()+total,total:total,min:min,label:($('label').value||'').trim(),started:now()};
+  lsSet(K_RUN,run);
+  try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}
+  lockScreen();renderHome();startLoop();
+}
+function startBreak(){
+  unlockAudio();
+  hideDone();$('bigStamp').classList.add('hide');
+  const total=5*60000;
+  run={type:'break',end:now()+total,total:total,min:5,label:'',started:now()};
+  lsSet(K_RUN,run);
+  renderHome();startLoop();
+}
+let quitArm=0,quitT=null;
+function quitRun(){
+  const isBreak=run&&run.type==='break';
+  const q=$('running').querySelector('.quit');
+  if(!isBreak && !quitArm){
+    quitArm=1;q.classList.add('arm');q.textContent='本当にやめる？（もう一度押す）';
+    clearTimeout(quitT);quitT=setTimeout(()=>{quitArm=0;q.classList.remove('arm');q.textContent='やめる（スタンプなし）';},3000);
+    return;
+  }
+  quitArm=0;clearTimeout(quitT);q.classList.remove('arm');
+  clearInterval(timer);run=null;lsSet(K_RUN,null);unlockScreen();
+  document.title='集中スタンプ';renderHome();
+}
+function finishRun(){
+  clearInterval(timer);timer=null;
+  const r=run;run=null;lsSet(K_RUN,null);unlockScreen();
+  document.title='集中スタンプ';
+  if(!r){return;}
+  if(r.type==='focus'){
+    pending={t:r.end,min:r.min,label:r.label||''};
+    lsSet('focus_pending',pending);
+    showAwait();
+    try{if(document.hidden&&window.Notification&&Notification.permission==='granted')new Notification('時間です',{body:'スタンプを押しに戻ろう'});}catch(e){}
+  }else{
+    try{chime();}catch(e){}
+    $('done').classList.remove('hide');
+    $('aim').classList.add('hide');$('bigStamp').classList.add('hide');$('doneBtns').classList.remove('hide');
+    $('done').style.cursor='';awaiting=false;
+    $('doneTitle').textContent='休憩おわり';
+    $('doneSub').textContent='次、いけそう？';
+  }
+  renderHome();
+}
+function cursorUrl(){
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 200 200">${stampSvg('',true)}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 32 32, pointer`;
+}
+function showAwait(){
+  awaiting=true;
+  $('done').classList.remove('hide');
+  $('aim').classList.remove('hide');
+  $('bigStamp').classList.add('hide');
+  $('doneBtns').classList.add('hide');
+  $('done').style.cursor=cursorUrl();
+  $('doneTitle').textContent=`${durLabel(pending.min)} 集中できた！`;
+  $('doneSub').textContent='スタンプを自分で押そう';
+  try{chime();}catch(e){}
+}
+function press(x,y){
+  if(!awaiting||!pending) return;
+  awaiting=false;
+  const r=pending;pending=null;lsSet('focus_pending',null);
+  stamps.push({t:now(),min:r.min,label:r.label});
+  lsSet(K_STAMPS,stamps);
+  const svg=$('bigStamp');
+  svg.classList.remove('slam');svg.classList.remove('hide');
+  svg.innerHTML=stampSvg(durLabel(r.min),false);
+  svg.style.left=(x-100)+'px';svg.style.top=(y-100)+'px';
+  void svg.getBoundingClientRect();
+  svg.classList.add('slam');
+  $('aim').classList.add('hide');
+  $('done').style.cursor='';
+  unlockAudio();thud();setTimeout(chime,250);
+  const n=todayStamps().length;
+  $('doneTitle').textContent=PRAISE[Math.floor(Math.random()*PRAISE.length)];
+  $('doneSub').textContent=`今日 ${n} 個目のスタンプ`+(n===goal?'　🎉 目標クリア！':'');
+  setTimeout(()=>$('doneBtns').classList.remove('hide'),500);
+  confetti();
+  renderHome();
+}
+$('done').addEventListener('pointerdown',e=>{ if(awaiting) press(e.clientX,e.clientY); });
+function hideDone(){$('done').classList.add('hide');}
+function closeDone(){hideDone();$('bigStamp').classList.add('hide');renderHome();}
+function confetti(){
+  const cols=['#E8503A','#F2B84B','#5CC48A','#7AA8FF','#F5F1E8'];
+  for(let i=0;i<36;i++){
+    const e=document.createElement('div');e.className='confetti';
+    e.style.left=Math.random()*100+'vw';
+    e.style.background=cols[i%cols.length];
+    e.style.animationDuration=(1.6+Math.random()*1.6)+'s';
+    e.style.animationDelay=(Math.random()*.5)+'s';
+    document.body.appendChild(e);
+    setTimeout(()=>e.remove(),4000);
+  }
+}
+
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden){ if(run){ lockScreen(); tick(); } renderHome(); }});
+
+/* ---- 起動 ---- */
+function init(){
+  document.documentElement.style.setProperty('--hammer',hammerCursor());
+  renderHome();
+  if(pending&&!run){ showAwait(); }
+  if(run){ if(run.end<=now()){ finishRun(); } else { startLoop(); lockScreen(); } }
+  if('serviceWorker' in navigator){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }
+}
+init();
+</script>
+</body>
+</html>
